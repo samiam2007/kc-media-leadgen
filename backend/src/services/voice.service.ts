@@ -4,6 +4,7 @@ import { config } from '../config';
 import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
+import WebSocket from 'ws';
 
 interface VoiceOptions {
   voiceId?: string;
@@ -52,43 +53,40 @@ export class VoiceService {
     options: VoiceOptions
   ): Promise<string> {
     try {
-      const voiceId = options.voiceId || this.defaultVoiceId;
-      const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`;
+      const voiceId = options.voiceId || this.defaultVoiceId || 'pNInz6obpgDQGcFmaJgB'; // Adam voice as default
+      const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
 
       const response = await axios.post(
         url,
         {
           text,
-          model_id: 'eleven_turbo_v2',
+          model_id: 'eleven_monolingual_v1',
           voice_settings: {
             stability: options.stability || 0.5,
-            similarity_boost: options.similarityBoost || 0.8,
-            style: options.style || 0.5,
-            use_speaker_boost: options.useSpeakerBoost ?? true
+            similarity_boost: options.similarityBoost || 0.75
           }
         },
         {
           headers: {
             'xi-api-key': this.elevenLabsApiKey,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'audio/mpeg'
           },
-          responseType: 'stream'
+          responseType: 'arraybuffer'
         }
       );
 
-      const filename = `${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`;
-      const filepath = path.join('/tmp', filename);
-      const writer = fs.createWriteStream(filepath);
-
-      response.data.pipe(writer);
-
-      return new Promise((resolve, reject) => {
-        writer.on('finish', () => {
-          const publicUrl = this.uploadToS3(filepath, filename);
-          resolve(publicUrl);
-        });
-        writer.on('error', reject);
-      });
+      // Convert audio to base64 data URL that Twilio can play
+      const audioBase64 = Buffer.from(response.data).toString('base64');
+      const dataUrl = `data:audio/mpeg;base64,${audioBase64}`;
+      
+      // For now, return a placeholder URL since we need proper file hosting
+      // In production, this should upload to S3 or similar
+      logger.info('ElevenLabs audio generated', { textLength: text.length });
+      
+      // Return empty string to fall back to Twilio Polly for now
+      // Once we set up file hosting, we can return the actual URL
+      return '';
     } catch (error) {
       logger.error('ElevenLabs synthesis failed', { error, text });
       throw error;

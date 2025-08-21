@@ -21,16 +21,64 @@ export function createTwilioRoutes(
       logger.info('Incoming call received', { body: req.body });
       const { CallSid, From, To } = req.body;
       
-      // Generate TwiML response for incoming call
-      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-        <Response>
-          <Say voice="Polly.Joanna">Hello! This is KC Media Team. We specialize in drone photography and videography for commercial real estate. How can I help you today?</Say>
-          <Pause length="1"/>
-          <Say>If you'd like to learn more about our services, please stay on the line.</Say>
-          <Hangup/>
-        </Response>`;
+      // Create a new call record in the database
+      const call = await prisma.call.create({
+        data: {
+          twilioCallSid: CallSid,
+          phoneNumber: From,
+          direction: 'inbound',
+          status: 'initiated',
+          startAt: new Date(),
+          // Create a temporary contact if it doesn't exist
+          contact: {
+            connectOrCreate: {
+              where: { phone: From },
+              create: {
+                phone: From,
+                status: 'new',
+                source: 'inbound_call'
+              }
+            }
+          },
+          // Use a default campaign for inbound calls
+          campaignId: null
+        }
+      });
       
-      res.type('text/xml').send(twiml);
+      logger.info('Call record created', { callId: call.id });
+      
+      // Generate initial greeting with ElevenLabs
+      const greeting = "Hello! This is KC Media Team. We specialize in drone photography and videography for commercial real estate. I'm here to help you showcase your properties from stunning aerial perspectives. What type of property are you looking to market?";
+      
+      try {
+        // Try to use ElevenLabs for natural voice
+        const audioUrl = await voiceService.synthesizeSpeech(greeting);
+        
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+          <Response>
+            <Play>${audioUrl}</Play>
+            <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${call.id}" method="POST">
+              <Pause length="5"/>
+            </Gather>
+            <Redirect>/api/twilio/handle-input/${call.id}</Redirect>
+          </Response>`;
+        
+        res.type('text/xml').send(twiml);
+      } catch (voiceError) {
+        // Fallback to Twilio's Polly voice if ElevenLabs fails
+        logger.error('ElevenLabs failed, using Polly fallback', { error: voiceError });
+        
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+          <Response>
+            <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${call.id}" method="POST">
+              <Say voice="Polly.Joanna">${greeting}</Say>
+              <Pause length="5"/>
+            </Gather>
+            <Redirect>/api/twilio/handle-input/${call.id}</Redirect>
+          </Response>`;
+        
+        res.type('text/xml').send(twiml);
+      }
     } catch (error) {
       logger.error('Incoming call webhook error', { error });
       const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
