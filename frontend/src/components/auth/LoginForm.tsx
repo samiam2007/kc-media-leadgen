@@ -13,7 +13,7 @@ import { Phone, Sparkles, ArrowRight } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters')
+  password: z.string().min(1, 'Password is required')
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -68,24 +68,23 @@ export function LoginForm() {
               <Phone className="h-8 w-8 text-white" />
             </div>
             <h2 className="text-3xl font-bold gradient-text mb-2">
-              {isRegistering ? 'Create Account' : 'Welcome Back'}
+              KC Media Lead Gen
             </h2>
             <p className="text-gray-600">
               {isRegistering 
-                ? 'Start your AI-powered calling journey' 
-                : 'Sign in to manage your campaigns'}
+                ? 'Create your account to get started' 
+                : 'Sign in to access your dashboard'}
             </p>
           </div>
 
-          {/* Demo credentials hint */}
+          {/* KC Media Team branding */}
           {!isRegistering && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-primary-50 to-secondary-50 rounded-lg border border-primary-200">
+            <div className="mb-6 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
               <div className="flex items-start space-x-2">
-                <Sparkles className="h-5 w-5 text-primary-600 mt-0.5" />
+                <Sparkles className="h-5 w-5 text-teal-600 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-semibold text-gray-700">Demo Access</p>
-                  <p className="text-gray-600">Email: demo@example.com</p>
-                  <p className="text-gray-600">Password: demo123</p>
+                  <p className="font-semibold text-gray-700">KC Media Team</p>
+                  <p className="text-gray-600">AI-Powered Drone Lead Generation</p>
                 </div>
               </div>
             </div>
