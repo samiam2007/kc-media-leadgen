@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Upload, FileText, Phone, Activity } from 'lucide-react'
 import ContactUpload from '@/components/contacts/ContactUpload'
 import ScriptEditor from '@/components/scripts/ScriptEditor'

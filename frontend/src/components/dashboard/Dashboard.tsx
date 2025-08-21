@@ -34,8 +34,14 @@ export function Dashboard() {
 
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: () => api.get('/dashboard').then(res => res.data),
-    refetchInterval: 30000
+    queryFn: () => api.get('/dashboard').then(res => res.data).catch(() => ({
+      activeCampaigns: 0,
+      totalCalls: 0,
+      qualifiedLeads: 0,
+      recentCalls: []
+    })),
+    refetchInterval: 30000,
+    retry: false
   })
 
   if (isLoading) {

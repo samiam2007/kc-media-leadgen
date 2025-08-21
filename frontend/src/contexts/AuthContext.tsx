@@ -37,9 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const response = await api.get('/auth/me')
-      setUser(response.data)
+      // Add timeout to prevent infinite loading
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
+      try {
+        const response = await api.get('/auth/me', {
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+        setUser(response.data)
+      } catch (err) {
+        clearTimeout(timeoutId)
+        console.log('Auth check failed, clearing token')
+        localStorage.removeItem('token')
+      }
     } catch (error) {
+      console.error('Auth check error:', error)
       localStorage.removeItem('token')
     } finally {
       setLoading(false)

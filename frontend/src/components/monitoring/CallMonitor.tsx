@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Phone, PhoneOff, Mic, MicOff, Clock, User, Building, AlertCircle } from 'lucide-react'
 import { api } from '@/lib/api'
-import io from 'socket.io-client'
+// import io from 'socket.io-client' // Disabled for now
 
 interface ActiveCall {
   id: string
@@ -32,52 +32,16 @@ export default function CallMonitor() {
   const [socket, setSocket] = useState<any>(null)
 
   useEffect(() => {
-    // Connect to WebSocket for real-time updates
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://kc-media-leadgen-production.up.railway.app'
-    const newSocket = io(socketUrl)
-    
-    newSocket.on('connect', () => {
-      console.log('Connected to call monitoring')
-    })
-
-    // Listen for call events
-    newSocket.on('call:started', (call: ActiveCall) => {
-      setActiveCalls(prev => [...prev, call])
-    })
-
-    newSocket.on('call:updated', (update: any) => {
-      setActiveCalls(prev => prev.map(call => 
-        call.id === update.callId ? { ...call, ...update } : call
-      ))
-    })
-
-    newSocket.on('call:ended', (callId: string) => {
-      setActiveCalls(prev => prev.filter(call => call.id !== callId))
-    })
-
-    newSocket.on('call:transcript', (data: any) => {
-      setActiveCalls(prev => prev.map(call => {
-        if (call.id === data.callId) {
-          return {
-            ...call,
-            transcript: [...call.transcript, {
-              speaker: data.speaker,
-              text: data.text,
-              timestamp: new Date().toISOString()
-            }]
-          }
-        }
-        return call
-      }))
-    })
-
-    setSocket(newSocket)
-
     // Fetch current active calls
     fetchActiveCalls()
+    
+    // Poll for updates every 5 seconds instead of websocket for now
+    const interval = setInterval(() => {
+      fetchActiveCalls()
+    }, 5000)
 
     return () => {
-      newSocket.disconnect()
+      clearInterval(interval)
     }
   }, [])
 
