@@ -1,0 +1,28 @@
+# Copy these to Railway Dashboard → Variables tab
+
+# Twilio
+TWILIO_ACCOUNT_SID=AC955b0339142e0b6da1dfd1bad3abd67a
+TWILIO_AUTH_TOKEN=2ae5f24a23a4696bc59016431ac1c267
+TWILIO_PHONE_NUMBER=+18668790547
+
+# AI
+ANTHROPIC_API_KEY=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
+
+# Voice
+ELEVENLABS_API_KEY=sk_7ab713c0d85765a6ecf7eab58a6b28143e9278c38c26eac6
+ELEVENLABS_VOICE_ID=EXAVITQu4vr4xnSDxMaL
+VOICE_PROVIDER=elevenlabs
+
+# Company
+COMPANY_NAME=KC Media Team
+COMPANY_PHONE=9132387094
+COMPANY_EMAIL=info@kcmediateam.me
+COMPANY_WEBSITE=https://kcmediateam.me
+
+# Security
+JWT_SECRET=kcmedia_production_secret_2024_change_this
+NODE_ENV=production
+
+# After Railway gives you URL, update this:
+TWILIO_WEBHOOK_URL=https://YOUR-APP.up.railway.app/api/twilio
+NEXT_PUBLIC_API_URL=https://YOUR-APP.up.railway.app/api

@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id               String    @id @default(uuid())
+  name             String
+  scriptId         String
+  script           Script    @relation(fields: [scriptId], references: [id])
+  voiceId          String
+  dialingWindowTz  String    @default("America/Chicago")
+  dailyCallCap     Int       @default(100)
+  retryPolicy      Json
+  status           String    @default("draft")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  contacts         Contact[]
+  calls            Call[]
+  
+  @@index([status])
+}
+
+model Contact {
+  id               String    @id @default(uuid())
+  campaignId       String
+  campaign         Campaign  @relation(fields: [campaignId], references: [id])
+  company          String
+  fullName         String
+  title            String?
+  phone            String
+  email            String?
+  market           String?
+  source           String?
+  status           String    @default("new")
+  dnc              Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  calls            Call[]
+  leadIntake       LeadIntake?
+  appointments     Appointment[]
+  
+  @@unique([phone])
+  @@index([campaignId, status])
+  @@index([dnc])
+}
+
+model Script {
+  id               String    @id @default(uuid())
+  name             String
+  persona          String
+  states           Json
+  variables        Json
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  campaigns        Campaign[]
+}
+
+model Call {
+  id               String    @id @default(uuid())
+  campaignId       String
+  campaign         Campaign  @relation(fields: [campaignId], references: [id])
+  contactId        String
+  contact          Contact   @relation(fields: [contactId], references: [id])
+  twilioCallSid    String?   @unique
+  status           String
+  startAt          DateTime?
+  endAt            DateTime?
+  durationSeconds  Int?
+  recordingUrl     String?
+  transcriptUrl    String?
+  costTwilio       Float?
+  costTts          Float?
+  costAsr          Float?
+  costLlm          Float?
+  outcome          String?
+  nextAction       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  events           Event[]
+  turns            Turn[]
+  
+  @@index([campaignId, status])
+  @@index([contactId])
+  @@index([twilioCallSid])
+}
+
+model Turn {
+  id               String    @id @default(uuid())
+  callId           String
+  call             Call      @relation(fields: [callId], references: [id])
+  turnNumber       Int
+  state            String
+  userInput        String?
+  botResponse      String?
+  confidence       Float?
+  timestamp        DateTime  @default(now())
+  
+  @@index([callId])
+}
+
+model LeadIntake {
+  id               String    @id @default(uuid())
+  contactId        String    @unique
+  contact          Contact   @relation(fields: [contactId], references: [id])
+  budgetRange      String?
+  needsVideo       Boolean   @default(false)
+  needsPhotos      Boolean   @default(false)
+  timeline         String?
+  propertiesCount  Int?
+  decisionMaker    Boolean   @default(false)
+  notes            String?
+  score            Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@index([score])
+}
+
+model Appointment {
+  id               String    @id @default(uuid())
+  contactId        String
+  contact          Contact   @relation(fields: [contactId], references: [id])
+  calendarEventId  String?
+  startAt          DateTime
+  endAt            DateTime
+  channel          String
+  status           String    @default("scheduled")
+  meetingUrl       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@index([contactId])
+  @@index([startAt])
+}
+
+model Event {
+  id               String    @id @default(uuid())
+  callId           String?
+  call             Call?     @relation(fields: [callId], references: [id])
+  type             String
+  payload          Json
+  timestamp        DateTime  @default(now())
+  
+  @@index([callId])
+  @@index([type])
+  @@index([timestamp])
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String
+  role             String    @default("operator")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@index([email])
+}
+
+model DncList {
+  id               String    @id @default(uuid())
+  phone            String    @unique
+  reason           String
+  source           String
+  createdAt        DateTime  @default(now())
+  
+  @@index([phone])
+}
