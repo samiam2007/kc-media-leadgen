@@ -41,22 +41,42 @@ const voiceService = new VoiceService();
 const crmService = new CRMService();
 const leadService = new LeadService(prisma, dialogueEngine, crmService, twilioService);
 
-const callQueue = new Bull('call-queue', {
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379')
-  }
-});
-
-setupCallProcessor(callQueue, twilioService, prisma);
+// Only set up Redis/Bull if REDIS_URL is available
+let callQueue: Bull.Queue | null = null;
+if (process.env.REDIS_URL) {
+  callQueue = new Bull('call-queue', process.env.REDIS_URL);
+  setupCallProcessor(callQueue, twilioService, prisma);
+}
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: '*',
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'KC Media Lead Gen API',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'KC Media Lead Gen Platform is running!',
+    endpoints: {
+      health: '/api/health',
+      twilio_voice: '/api/twilio/voice/:callId',
+      twilio_status: '/api/twilio/status/:callId'
+    }
+  });
+});
+
+// Twilio webhooks (no auth required)
 app.use('/api/twilio', createTwilioRoutes(
   prisma, 
   twilioService, 
@@ -65,13 +85,17 @@ app.use('/api/twilio', createTwilioRoutes(
   leadService
 ));
 
+// Auth routes (no auth required)
 app.use('/api/auth', createAuthRoutes(prisma));
 
+// Protected routes
 app.use('/api', authenticateToken);
-
-app.use('/api', createCampaignRoutes(prisma, twilioService, callQueue));
+if (callQueue) {
+  app.use('/api', createCampaignRoutes(prisma, twilioService, callQueue));
+}
 app.use('/api', createScriptRoutes(prisma));
 
+// Dashboard endpoint
 app.get('/api/dashboard', async (req, res) => {
   try {
     const [
@@ -108,6 +132,7 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
+// Socket.io connection handling
 io.on('connection', (socket) => {
   logger.info('Client connected', { socketId: socket.id });
 
@@ -121,26 +146,7 @@ io.on('connection', (socket) => {
   });
 });
 
-callQueue.on('completed', async (job, result) => {
-  io.to(`campaign-${job.data.campaignId}`).emit('call-completed', {
-    contactId: job.data.contactId,
-    result
-  });
-});
-
-callQueue.on('failed', async (job, err) => {
-  logger.error('Call job failed', { 
-    error: err, 
-    jobId: job.id,
-    data: job.data 
-  });
-  
-  io.to(`campaign-${job.data.campaignId}`).emit('call-failed', {
-    contactId: job.data.contactId,
-    error: err.message
-  });
-});
-
+// Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error', { error: err });
   res.status(500).json({ error: 'Internal server error' });
@@ -151,4 +157,10 @@ const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Twilio webhook URL should be: ${config.twilio.webhookUrl}`);
+  console.log(`
+    🚀 KC Media Lead Gen Platform is running!
+    📞 Port: ${PORT}
+    🌐 Health: http://localhost:${PORT}/api/health
+    📱 Twilio Voice: http://localhost:${PORT}/api/twilio/voice
+  `);
 });
