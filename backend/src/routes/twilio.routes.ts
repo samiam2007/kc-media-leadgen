@@ -101,6 +101,90 @@ export function createTwilioRoutes(
     }
   });
 
+  // Outbound call webhook
+  router.post('/outbound/:callId', async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const { AnsweredBy } = req.body;
+      
+      logger.info('Outbound call answered', { callId, answeredBy: AnsweredBy });
+      
+      // If answered by machine, leave a message
+      if (AnsweredBy === 'machine_end_beep' || AnsweredBy === 'machine_end_silence') {
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+          <Response>
+            <Say voice="Polly.Joanna">Hello, this is KC Media Team. We specialize in drone photography for commercial real estate. Please call us back at 913-238-7094 to learn how we can help your properties lease faster. Thank you!</Say>
+            <Hangup/>
+          </Response>`;
+        
+        await prisma.call.update({
+          where: { id: callId },
+          data: { 
+            status: 'voicemail',
+            outcome: 'machine_detected'
+          }
+        });
+        
+        return res.type('text/xml').send(twiml);
+      }
+      
+      // Human answered - start conversation
+      const call = await prisma.call.findUnique({
+        where: { id: callId },
+        include: {
+          contact: true,
+          campaign: {
+            include: { script: true }
+          }
+        }
+      });
+
+      if (!call) {
+        return res.status(404).send('Call not found');
+      }
+      
+      // Use dialogue engine for initial greeting
+      const initialState = {
+        currentState: 'greeting',
+        context: { 
+          isOutbound: true,
+          contactName: call.contact?.fullName,
+          company: call.contact?.company
+        },
+        turnCount: 0,
+        qualificationData: {}
+      };
+      
+      const dialogueResult = await dialogueEngine.processInput(
+        callId,
+        '',
+        initialState
+      );
+      
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+          <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${callId}" method="POST">
+            <Say voice="Polly.Joanna">${dialogueResult.response}</Say>
+            <Pause length="3"/>
+          </Gather>
+          <Redirect>/api/twilio/handle-input/${callId}</Redirect>
+        </Response>`;
+      
+      await prisma.call.update({
+        where: { id: callId },
+        data: {
+          status: 'in_progress',
+          startAt: new Date()
+        }
+      });
+      
+      res.type('text/xml').send(twiml);
+    } catch (error) {
+      logger.error('Outbound call error', { error });
+      res.status(500).send('Internal error');
+    }
+  });
+
   router.post('/voice/:callId', async (req: Request, res: Response) => {
     try {
       const { callId } = req.params;

@@ -16,6 +16,8 @@ import { createTwilioRoutes } from './routes/twilio.routes';
 import { createCampaignRoutes } from './routes/campaign.routes';
 import { createAuthRoutes } from './routes/auth.routes';
 import { createScriptRoutes } from './routes/script.routes';
+import { createContactsRoutes } from './routes/contacts.routes';
+import { createCallingRoutes } from './routes/calling.routes';
 
 import { logger } from './utils/logger';
 import { config } from './config';
@@ -93,8 +95,10 @@ app.use('/api/auth', createAuthRoutes(prisma));
 app.use('/api', authenticateToken);
 if (callQueue) {
   app.use('/api', createCampaignRoutes(prisma, twilioService, callQueue));
+  app.use('/api', createCallingRoutes(prisma, twilioService, callQueue));
 }
 app.use('/api', createScriptRoutes(prisma));
+app.use('/api', createContactsRoutes(prisma));
 
 // Dashboard endpoint
 app.get('/api/dashboard', async (req, res) => {
