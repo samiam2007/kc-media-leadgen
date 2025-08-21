@@ -55,8 +55,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoint (no auth)
+app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'KC Media Lead Gen API',
@@ -64,12 +64,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Test endpoint
+// Test endpoint (no auth)
 app.get('/', (req, res) => {
   res.json({ 
     message: 'KC Media Lead Gen Platform is running!',
     endpoints: {
-      health: '/api/health',
+      health: '/health',
+      twilio_incoming: '/api/twilio/incoming',
       twilio_voice: '/api/twilio/voice/:callId',
       twilio_status: '/api/twilio/status/:callId'
     }
@@ -88,7 +89,7 @@ app.use('/api/twilio', createTwilioRoutes(
 // Auth routes (no auth required)
 app.use('/api/auth', createAuthRoutes(prisma));
 
-// Protected routes
+// Protected routes - everything under /api requires auth except the routes above
 app.use('/api', authenticateToken);
 if (callQueue) {
   app.use('/api', createCampaignRoutes(prisma, twilioService, callQueue));
@@ -160,7 +161,8 @@ httpServer.listen(PORT, () => {
   console.log(`
     🚀 KC Media Lead Gen Platform is running!
     📞 Port: ${PORT}
-    🌐 Health: http://localhost:${PORT}/api/health
-    📱 Twilio Voice: http://localhost:${PORT}/api/twilio/voice
+    🌐 Health: http://localhost:${PORT}/health
+    📱 Twilio Voice: http://localhost:${PORT}/api/twilio/voice/:callId
+    📱 Twilio Status: http://localhost:${PORT}/api/twilio/status/:callId
   `);
 });

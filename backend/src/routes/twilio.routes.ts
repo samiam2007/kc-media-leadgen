@@ -15,6 +15,33 @@ export function createTwilioRoutes(
 ): Router {
   const router = Router();
 
+  // Initial webhook for incoming calls (no callId yet)
+  router.post('/incoming', async (req: Request, res: Response) => {
+    try {
+      logger.info('Incoming call received', { body: req.body });
+      const { CallSid, From, To } = req.body;
+      
+      // Generate TwiML response for incoming call
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+          <Say voice="Polly.Joanna">Hello! This is KC Media Team. We specialize in drone photography and videography for commercial real estate. How can I help you today?</Say>
+          <Pause length="1"/>
+          <Say>If you'd like to learn more about our services, please stay on the line.</Say>
+          <Hangup/>
+        </Response>`;
+      
+      res.type('text/xml').send(twiml);
+    } catch (error) {
+      logger.error('Incoming call webhook error', { error });
+      const errorTwiml = `<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+          <Say>We're sorry, but we're unable to take your call at this time. Please try again later.</Say>
+          <Hangup/>
+        </Response>`;
+      res.type('text/xml').send(errorTwiml);
+    }
+  });
+
   router.post('/voice/:callId', async (req: Request, res: Response) => {
     try {
       const { callId } = req.params;
