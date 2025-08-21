@@ -13,8 +13,10 @@ import {
   Activity,
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  Wrench
 } from 'lucide-react'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -65,6 +67,14 @@ export function Dashboard() {
             </div>
             
             <div className="flex items-center space-x-3">
+              <Link href="/tools">
+                <Button 
+                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Tools
+                </Button>
+              </Link>
               <Button 
                 onClick={() => setShowAIModal(true)}
                 className="bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
@@ -96,7 +106,7 @@ export function Dashboard() {
         <div className="mb-8 p-6 bg-brand-gradient rounded-2xl shadow-xl text-white">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Welcome back, {user?.email?.split('@')[0]}!</h2>
+              <h2 className="text-3xl font-bold mb-2">Welcome to KC Media Lead Gen!</h2>
               <p className="text-white/80">Your AI calling campaigns are performing exceptionally well today.</p>
             </div>
             <div className="text-right">
