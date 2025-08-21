@@ -186,6 +186,45 @@ export function createCallingRoutes(
     }
   });
 
+  // Get active calls for monitoring
+  router.get('/calls/active', async (req: Request, res: Response) => {
+    try {
+      const activeCalls = await prisma.call.findMany({
+        where: {
+          status: { in: ['initiated', 'in_progress', 'ringing'] }
+        },
+        include: {
+          contact: true,
+          campaign: true,
+          turns: {
+            orderBy: { turnNumber: 'asc' }
+          }
+        }
+      });
+
+      const formattedCalls = activeCalls.map(call => ({
+        id: call.id,
+        contactName: call.contact?.fullName || 'Unknown',
+        company: call.contact?.company || '',
+        phone: call.phoneNumber,
+        status: call.status,
+        duration: call.durationSeconds || 0,
+        state: call.turns[call.turns.length - 1]?.state || 'greeting',
+        transcript: call.turns.map(turn => ({
+          speaker: 'agent' as const,
+          text: turn.botResponse,
+          timestamp: turn.createdAt
+        })),
+        qualificationData: {}
+      }));
+
+      res.json(formattedCalls);
+    } catch (error) {
+      logger.error('Error fetching active calls', { error });
+      res.status(500).json({ error: 'Failed to fetch active calls' });
+    }
+  });
+
   // Get call statistics
   router.get('/campaigns/:campaignId/stats', async (req: Request, res: Response) => {
     try {
