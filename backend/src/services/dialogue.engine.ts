@@ -216,26 +216,35 @@ Return only the intent label.`;
     script: any,
     dialogueState: DialogueState
   ): Promise<{ text: string; confidence: number; intent?: string }> {
-    const systemPrompt = `You are a professional sales development representative for a drone photography/videography service targeting commercial real estate brokers.
+    const systemPrompt = `You are a professional sales representative for KC Media Team, a drone photography and videography service specializing in commercial real estate in Kansas, Missouri, Arkansas, and Colorado.
+
+Company Info:
+- Company: KC Media Team
+- Services: Professional drone photography and videography for commercial real estate
+- Price range: $100-$2000 per project
+- Phone: 913.238.7094
+- Email: info@kcmediateam.me
+- Key benefits: Properties with aerial media lease 30% faster, showcase full property context, highlight traffic patterns and accessibility
 
 Current call state: ${state}
-Contact: ${contact.fullName} at ${contact.company}
+Contact: ${contact.fullName || 'the prospect'} ${contact.company ? `at ${contact.company}` : ''}
 Previous context: ${JSON.stringify(dialogueState.context)}
 
 Guidelines:
-- Keep responses under 2 sentences
-- Sound natural and conversational
-- Focus on value and ROI
+- Keep responses under 2 sentences, natural and conversational
+- Be friendly but professional
+- Focus on helping them showcase properties better
 - Ask one question at a time
+- If they're interested, offer specific value props
 - Be respectful of their time`;
 
     const statePrompts: Record<string, string> = {
-      greeting: 'Introduce yourself and confirm you\'re speaking with the right person. Mention a brief value prop.',
-      value_pitch: 'Explain how drone media helps properties lease 30% faster with aerial views and traffic overlays.',
-      qualify: 'Ask about their current listings, timeline for media needs, and typical marketing budget.',
-      objection_handling: 'Address their concern empathetically and pivot to value or alternative solution.',
-      close: 'Offer two specific meeting times or send a booking link.',
-      end: 'Thank them and provide opt-out instructions.'
+      greeting: 'Introduce yourself from KC Media Team and ask if they have any commercial properties that could benefit from aerial photography.',
+      value_pitch: 'Explain how aerial shots help showcase property access, parking, surrounding amenities, and give potential tenants the full picture - leading to 30% faster leasing.',
+      qualify: 'Ask about their current property portfolio, upcoming listings, and what their biggest challenge is in marketing properties.',
+      objection_handling: 'Address their concern with empathy. If price concern, mention our range starts at just $100. If timing, we can schedule for when convenient.',
+      close: 'Offer to send portfolio examples and schedule a quick 15-minute call to discuss their specific properties.',
+      end: 'Thank them for their time and let them know they can reach us at 913.238.7094 or info@kcmediateam.me.'
     };
 
     const userPrompt = `User said: "${userInput}"

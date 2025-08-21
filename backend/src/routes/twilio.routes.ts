@@ -47,12 +47,23 @@ export function createTwilioRoutes(
       
       logger.info('Call record created', { callId: call.id });
       
-      // Generate initial greeting with ElevenLabs
-      const greeting = "Hello! This is KC Media Team. We specialize in drone photography and videography for commercial real estate. I'm here to help you showcase your properties from stunning aerial perspectives. What type of property are you looking to market?";
+      // Use dialogue engine to generate initial greeting
+      const initialState = {
+        currentState: 'greeting',
+        context: { isInbound: true },
+        turnCount: 0,
+        qualificationData: {}
+      };
+      
+      const dialogueResult = await dialogueEngine.processInput(
+        call.id,
+        '', // No user input yet for initial greeting
+        initialState
+      );
       
       try {
         // Try to use ElevenLabs for natural voice
-        const audioUrl = await voiceService.synthesizeSpeech(greeting);
+        const audioUrl = await voiceService.synthesizeSpeech(dialogueResult.response);
         
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
           <Response>
@@ -71,7 +82,7 @@ export function createTwilioRoutes(
         const twiml = `<?xml version="1.0" encoding="UTF-8"?>
           <Response>
             <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${call.id}" method="POST">
-              <Say voice="Polly.Joanna">${greeting}</Say>
+              <Say voice="Polly.Joanna">${dialogueResult.response}</Say>
               <Pause length="5"/>
             </Gather>
             <Redirect>/api/twilio/handle-input/${call.id}</Redirect>
@@ -128,7 +139,10 @@ export function createTwilioRoutes(
     try {
       const { callId } = req.params;
       const { SpeechResult, CallSid } = req.body;
+      
+      logger.info('Processing user input', { callId, input: SpeechResult });
 
+      // Get the last turn to understand current state
       const lastTurn = await prisma.turn.findFirst({
         where: { callId },
         orderBy: { turnNumber: 'desc' }
@@ -141,27 +155,42 @@ export function createTwilioRoutes(
         qualificationData: {}
       };
 
+      // Use dialogue engine with Claude to process the conversation
       const result = await dialogueEngine.processInput(
         callId,
         SpeechResult || '',
         currentState
       );
+      
+      logger.info('Dialogue result', { 
+        callId, 
+        nextState: result.nextState, 
+        action: result.action 
+      });
 
+      // Update contact qualification if needed
       if (result.qualificationUpdate) {
-        const contact = await prisma.call.findUnique({
+        const call = await prisma.call.findUnique({
           where: { id: callId },
           select: { contactId: true }
         });
 
-        if (contact) {
-          await leadService.qualifyLead(contact.contactId, result.qualificationUpdate);
+        if (call?.contactId) {
+          await leadService.qualifyLead(call.contactId, result.qualificationUpdate);
         }
       }
 
       let twiml: string;
       
       if (result.action === 'end_call') {
-        twiml = twilioService.generateEndTwiML(result.response);
+        // End the call gracefully
+        twiml = `<?xml version="1.0" encoding="UTF-8"?>
+          <Response>
+            <Say voice="Polly.Joanna">${result.response}</Say>
+            <Pause length="1"/>
+            <Say voice="Polly.Joanna">Have a great day!</Say>
+            <Hangup/>
+          </Response>`;
         
         await prisma.call.update({
           where: { id: callId },
@@ -172,17 +201,44 @@ export function createTwilioRoutes(
           }
         });
       } else {
-        const audioUrl = await voiceService.synthesizeSpeech(result.response);
-        twiml = twilioService.generateResponseTwiML(result.response, callId, audioUrl);
+        // Continue the conversation
+        try {
+          const audioUrl = await voiceService.synthesizeSpeech(result.response);
+          if (audioUrl) {
+            twiml = `<?xml version="1.0" encoding="UTF-8"?>
+              <Response>
+                <Play>${audioUrl}</Play>
+                <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${callId}" method="POST">
+                  <Pause length="5"/>
+                </Gather>
+                <Redirect>/api/twilio/handle-input/${callId}</Redirect>
+              </Response>`;
+          } else {
+            throw new Error('No audio URL generated');
+          }
+        } catch (voiceError) {
+          // Fallback to Twilio Polly
+          logger.warn('Using Polly fallback', { error: voiceError });
+          twiml = `<?xml version="1.0" encoding="UTF-8"?>
+            <Response>
+              <Gather input="speech" timeout="3" speechTimeout="auto" action="/api/twilio/handle-input/${callId}" method="POST">
+                <Say voice="Polly.Joanna">${result.response}</Say>
+                <Pause length="5"/>
+              </Gather>
+              <Redirect>/api/twilio/handle-input/${callId}</Redirect>
+            </Response>`;
+        }
       }
 
       res.type('text/xml').send(twiml);
     } catch (error) {
       logger.error('Input handling error', { error });
       
-      const twiml = twilioService.generateEndTwiML(
-        'I apologize, but I need to end this call. Thank you for your time.'
-      );
+      const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+        <Response>
+          <Say voice="Polly.Joanna">I apologize, but I'm having technical difficulties. Please call us directly at 913-238-7094. Thank you!</Say>
+          <Hangup/>
+        </Response>`;
       res.type('text/xml').send(twiml);
     }
   });
