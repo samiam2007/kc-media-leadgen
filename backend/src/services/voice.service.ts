@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { VOICE_PROFILES, DEFAULT_VOICE, getVoiceForCampaign } from '../config/voice-profiles';
 import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
@@ -53,7 +54,12 @@ export class VoiceService {
     options: VoiceOptions
   ): Promise<string> {
     try {
-      const voiceId = options.voiceId || this.defaultVoiceId || 'pNInz6obpgDQGcFmaJgB'; // Adam voice as default
+      // Use Eric voice by default or the configured voice
+      const voiceProfile = options.voiceId ? 
+        Object.values(VOICE_PROFILES).find(v => v.id === options.voiceId) || DEFAULT_VOICE :
+        DEFAULT_VOICE;
+      
+      const voiceId = voiceProfile.id;
       const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
 
       const response = await axios.post(
@@ -62,8 +68,9 @@ export class VoiceService {
           text,
           model_id: 'eleven_monolingual_v1',
           voice_settings: {
-            stability: options.stability || 0.5,
-            similarity_boost: options.similarityBoost || 0.75
+            stability: options.stability || voiceProfile.stability,
+            similarity_boost: options.similarityBoost || voiceProfile.similarity_boost,
+            use_speaker_boost: voiceProfile.use_speaker_boost
           }
         },
         {

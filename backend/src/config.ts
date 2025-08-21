@@ -11,7 +11,7 @@ export const config = {
   },
   elevenlabs: {
     apiKey: process.env.ELEVENLABS_API_KEY!,
-    voiceId: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB' // Adam voice
+    voiceId: process.env.ELEVENLABS_VOICE_ID || 'cjVigY5qzO86Huf0OWal' // Eric - smooth professional voice
   },
   playht: {
     apiKey: process.env.PLAYHT_API_KEY,
